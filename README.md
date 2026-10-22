@@ -8,7 +8,7 @@ A local, upload-first full-stack Flask application for road damage detection usi
 - Reports require a location selection first and are filtered by that location.
 - Dashboard counts backed by SQLite records only.
 - Image upload and Roboflow Hosted Workflow inference with locally annotated image and detection metadata.
-- Manually uploaded CCTV video library (MP4, AVI, MOV), with optional live AI bounding-box overlay while the uploaded video plays; no physical camera or RTSP connection.
+- Real-time CCTV monitoring with AI-powered road damage detection, designed for future integration with live CCTV streams via RTSP.
 - Video frame sampling with timestamps and annotated frames.
 - Duplicate grouping across nearby sampled frames using class and approximate box overlap.
 - Detection inbox with Discard audit history or Report action.
