@@ -1,0 +1,70 @@
+{% extends "base.html" %}{% block title %}Reports · ROAD{% endblock %}{% block top_title %}Reports{%
+endblock %}
+{% block content %}<div class="page-heading">
+    <div>
+        <div class="eyebrow">REPORTS / LOCATION FILTER</div>
+        <h1>Reports</h1>
+        <p>Select a location first. Only reports submitted for that location will be shown.</p>
+    </div>
+</div>
+<section class="panel">
+    <div class="location-picker report-location-picker">
+        <form method="get" class="location-select-form"><label for="location_id">Choose report location</label><select
+                id="location_id" name="location_id" required onchange="this.form.submit()">
+                <option value="">Select a location…</option>{% for loc in locations %}<option value="{{ loc.id }}" {% if
+                    selected_location==loc.id %}selected{% endif %}>{{ loc.name }}</option>{% endfor %}
+            </select><select name="sort" aria-label="Sort reports">
+                <option value="latest" {% if sort_by=='latest' %}selected{% endif %}>Sort by latest</option>
+                <option value="oldest" {% if sort_by=='oldest' %}selected{% endif %}>Sort by oldest</option>
+            </select><button class="btn btn-secondary btn-small" type="submit">Filter</button></form><span
+            class="muted small">{% if selected_location %}{{ reports|length }} report(s){% else %}Location required{%
+            endif %}</span>
+    </div>
+    {% if not locations %}<div class="empty">
+        <div class="empty-symbol">⌖</div>
+        <h3>No locations configured</h3>
+        <p>Add a real location before submitting and filtering reports.</p><a class="btn btn-primary"
+            href="{{ url_for('locations_page') }}">＋ Add location</a>
+    </div>{% elif not selected_location %}<div class="empty">
+        <div class="empty-symbol">▤</div>
+        <h3>Choose a location first</h3>
+        <p>Reports remain hidden until you select the location you want to review.</p>
+    </div>{% elif reports %}<div class="table-scroll">
+        <table>
+            <thead>
+                <tr>
+                    <th>Report ID</th>
+                    <th>Damage type</th>
+                    <th>Location</th>
+                    <th>Recipient</th>
+                    <th>Submitted</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>{% for r in reports %}<tr>
+                    <td><a class="text-link" href="{{ url_for('report_detail',report_id=r.id) }}">{{ r.id }}</a></td>
+                    <td>{{ r.damage_type }}</td>
+                    <td>{{ r.location }}{% if r.location_id %} <a class="text-link report-location-details"
+                            href="{{ url_for('location_detail', location_id=r.location_id) }}"
+                            title="View location details">(Details)</a>{% endif %}</td>
+                    <td>{{ r.recipient }}</td>
+                    <td>{{ r.submitted_at|display_time }}</td>
+                    <td><span class="pill pill-green">{{ r.status }}</span></td>
+                    <td>
+                        <form method="post" action="{{ url_for('delete_report',report_id=r.id) }}"
+                            data-confirm="Remove this report?"><button class="icon-action danger" type="submit"
+                                aria-label="Delete report {{ r.id }}" title="Delete report"><svg viewBox="0 0 24 24"
+                                    aria-hidden="true" width="18" height="18" fill="none" stroke="currentColor"
+                                    stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M3 6h18M8 6V4h8v2m-11 0 1 14h12l1-14M10 10v6m4-6v6" />
+                                </svg></button></form>
+                    </td>
+                </tr>{% endfor %}</tbody>
+        </table>
+    </div>{% else %}<div class="empty">
+        <div class="empty-symbol">▤</div>
+        <h3>No reports for this location</h3>
+        <p>Reports submitted for the selected location will appear here. No sample reports are displayed.</p>
+    </div>{% endif %}
+</section>{% endblock %}

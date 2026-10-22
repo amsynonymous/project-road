@@ -1,0 +1,1 @@
+{% extends "base.html" %}{% block title %}{{ code }} · ROAD{% endblock %}{% block content %}<section class="panel empty error-page"><div class="empty-symbol">!</div><h1>{{ code }}</h1><h3>Something went wrong</h3><p>{{ message }}</p><a class="btn btn-primary" href="{{ url_for('dashboard') }}">Return to dashboard</a></section>{% endblock %}

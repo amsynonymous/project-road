@@ -1,0 +1,23 @@
+{% extends "base.html" %}{% block title %}Image Detection · ROAD{% endblock %}{% block top_title %}Image detection{% endblock %}
+{% block content %}
+<div class="page-heading"><div><div class="eyebrow">ANALYSIS / IMAGE</div><h1>Image Detection</h1><p>Upload a road image and run your Roboflow RF-DETR workflow.</p></div></div>
+<div class="two-col">
+<section class="panel pad-panel"><div class="panel-heading"><div><h2>Upload an image</h2><p>Supported: JPG, JPEG, PNG, WEBP · Maximum {{ max_upload_mb }} MB</p></div></div>
+<form method="post" enctype="multipart/form-data" data-loading>
+<div class="field"><label for="location_id">Registered location</label><select id="location_id" name="location_id" required><option value="">Choose a registered location…</option>{% for loc in locations %}<option value="{{ loc.id }}">{{ loc.name }}</option>{% endfor %}</select><small>Detection results from this image will be organised under the selected location.</small>{% if not locations %}<small class="form-error">Add a registered location first. <a class="text-link" href="{{ url_for('locations_page') }}">Manage locations →</a></small>{% endif %}</div>
+<label class="upload-zone" id="imageDrop"><input type="file" name="image" id="imageFile" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" required><span class="upload-symbol">↑</span><b id="fileLabel">Choose or drop an image here</b><small>Image contents are validated before processing.</small><span class="btn btn-secondary">Browse files</span><img id="preview" alt="Selected image preview" hidden></label>
+
+<button class="btn btn-primary btn-wide" type="submit" {% if not locations or not model_available %}disabled title="Add a location and configure the inference API first"{% endif %}>Run road damage detection →</button>
+{% if not model_available %}<p class="field-help error-text">Roboflow API configuration is missing. Add your credentials and workflow settings to <code>.env</code>.</p>{% endif %}
+</form></section>
+<section class="panel"><div class="panel-heading"><div><h2>Recent image uploads</h2><p>Actual uploads from this installation.</p></div></div>
+{% if recent %}<div class="record-list">{% for item in recent %}<div class="record-row"><a class="record-main" href="{% if item.analysis_id %}{{ url_for('analysis_detail', analysis_id=item.analysis_id) }}{% else %}{{ url_for('images') }}{% endif %}"><span class="file-icon">IMG</span><span class="record-main"><b>{{ item.original_name }}</b><small>{{ item.location_name or "Unassigned" }} · {{ item.uploaded_at|display_time }}</small></span><span class="record-end"><span class="pill {% if item.analysis_status=='Completed' %}pill-green{% elif item.status=='Failed' %}pill-red{% else %}pill-grey{% endif %}">{{ item.analysis_status or item.status }}</span><small>{{ item.detection_count or 0 }} detections</small></span></a><form method="post" action="{{ url_for('delete_media',media_id=item.id) }}" data-confirm="Remove this image and its analysis history?"><button class="btn btn-danger-outline btn-small">Remove</button></form></div>{% endfor %}</div>{% else %}<div class="empty"><div class="empty-symbol">⌗</div><h3>No images uploaded</h3><p>Uploaded images and analysis history will be listed here. Nothing is pre-populated.</p></div>{% endif %}
+</section></div>
+{% endblock %}
+{% block scripts %}<script>
+const f=document.getElementById('imageFile'), preview=document.getElementById('preview'), label=document.getElementById('fileLabel'), zone=document.getElementById('imageDrop');
+f.addEventListener('change',()=>{const file=f.files[0];if(!file)return;label.textContent=file.name;if(file.size>({{ max_upload_mb }}*1024*1024)){label.textContent='File exceeds upload limit';f.value='';return;}const u=URL.createObjectURL(file);preview.src=u;preview.hidden=false;});
+['dragover','dragenter'].forEach(e=>zone.addEventListener(e,ev=>{ev.preventDefault();zone.classList.add('dragging')}));
+['dragleave','drop'].forEach(e=>zone.addEventListener(e,ev=>{ev.preventDefault();zone.classList.remove('dragging');if(e==='drop'&&ev.dataTransfer.files.length){f.files=ev.dataTransfer.files;f.dispatchEvent(new Event('change'));}}));
+
+</script>{% endblock %}

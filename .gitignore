@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+.venv/
+.env
+instance/*.sqlite3
+static/uploads/*
+!static/uploads/.gitkeep
+static/results/*
+!static/results/.gitkeep
+static/frames/*
+!static/frames/.gitkeep
+weights/*.pt

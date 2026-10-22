@@ -1,0 +1,128 @@
+{% extends "base.html" %}{% block title %}Detection Inbox · ROAD<style>
+    .location-card-title {
+        color: inherit;
+        text-decoration: none
+    }
+
+    .location-card-title:hover {
+        color: #dc2626
+    }
+</style>
+{% endblock %}{% block top_title %}Detection inbox<style>
+    .location-card-title {
+        color: inherit;
+        text-decoration: none
+    }
+
+    .location-card-title:hover {
+        color: #dc2626
+    }
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <div>
+        <div class="eyebrow">REVIEW / DETECTIONS</div>
+        <h1>Detection Inbox</h1>
+        <p>Select a registered location to review its detections and reports without cluttering the inbox.</p>
+    </div>
+</div>
+<section class="panel registered-location-panel">
+    <div class="panel-heading">
+        <div>
+            <h2>Registered locations</h2>
+        </div>
+    </div>
+    {% if registered_locations %}<div class="registered-location-grid">{% for loc in registered_locations %}<article
+            class="registered-location-card">
+            <div class="registered-location-count" title="Pending reports requiring action">{{ loc.pending_report_count
+                }}</div>
+            <div class="registered-location-info"><b><a class="location-card-title"
+                        href="{{ url_for('location_detail',location_id=loc.id) }}">{{ loc.name }}</a></b><small>{{
+                    loc.pending_report_count }} pending report(s)</small>{% if
+                loc.latitude is not none and loc.longitude is not none %}{% else %}<small class="muted">No map pin
+                    saved</small>{% endif %}<a class="text-link"
+                    href="{{ url_for('location_detail', location_id=loc.id) }}">Check Detection →</a></div>
+        </article>{% endfor %}</div>{% else %}<div class="empty compact">
+        <h3>No registered locations</h3><a class="btn btn-primary" href="{{ url_for('locations_page') }}">＋ Add
+            location</a>
+    </div>{% endif %}
+</section>
+{% if location_id %}<section class="panel section-gap">
+    <div class="filter-bar">
+        <form method="get" class="filter-form"><select name="location_id" aria-label="Filter registered location">
+                <option value="" {% if not location_id %}selected{% endif %}>Choose a registered location…</option>
+                <option value="All" {% if location_id=="All" %}selected{% endif %}>All locations</option>{% for loc in
+                locations %}<option value="{{ loc.id }}" {% if location_id==loc.id %}selected{% endif %}>{{ loc.name }}
+                </option>{% endfor %}
+            </select><input type="search" name="q" value="{{ search }}" placeholder="Search class or filename…"><select
+                name="state" aria-label="Detection state">{% for s in ['Pending','Reported','Discarded','All'] %}<option
+                    value="{{ s }}" {% if state==s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select><select
+                name="sort" aria-label="Sort detections">
+                <option value="latest" {% if sort_by=='latest' %}selected{% endif %}>Sort by latest</option>
+                <option value="oldest" {% if sort_by=='oldest' %}selected{% endif %}>Sort by oldest</option>
+            </select><button class="btn btn-secondary btn-small">Filter</button></form><span class="muted small">{{
+            detections|length }} result(s)</span>
+    </div>
+    <div class="inbox-columns">
+        <section class="inbox-detected-column">
+            <div class="inbox-column-heading">
+                <h2>Detected issues</h2><span class="pill pill-grey">{{ detections|length }}</span>
+            </div>{% if detections %}<div class="detection-grid inbox-grid">{% for d in detections %}<article
+                    class="detection-card"><a href="{{ url_for('static',filename=d.evidence_path) }}"
+                        class="evidence-zoom-trigger" data-evidence-title="{{ d.class_name }} detection evidence"><img
+                            src="{{ url_for('static',filename=d.evidence_path) }}"
+                            alt="Evidence for {{ d.class_name }}"></a>
+                    <div class="detection-card-body">
+                        <div class="detection-title"><b>{{ d.class_name }}</b><span class="pill pill-red">{{
+                                (d.confidence*100)|round(1) }}%</span></div>
+                        <p class="source-name">{{ d.original_name }}</p>
+                        <p>Location: {{ d.location_name or "Unassigned" }}</p>
+                        <p>Source: {{ d.media_type|title }} · Analysed {{ d.analysed_at|display_time }}</p>{% if
+                        d.timestamp_seconds is not none %}<p>Timestamp {{ d.timestamp_seconds|round(2) }} s · Frame {{
+                            d.frame_number }}</p>{% endif %}<span
+                            class="pill {% if d.state=='Pending' %}pill-grey{% elif d.state=='Reported' %}pill-green{% else %}pill-red{% endif %}">{{
+                            d.state }}</span>{% if d.state=='Pending' %}<div class="card-actions"><a
+                                class="btn btn-primary btn-small"
+                                href="{{ url_for('report_detection',detection_id=d.id) }}">Report</a>
+                            <form method="post" action="{{ url_for('discard_detection',detection_id=d.id) }}"
+                                data-confirm="Discard this detection? The audit record will be retained."><button
+                                    class="btn btn-danger-outline btn-small">Discard</button></form>
+                        </div>{% elif d.state=='Reported' %}<div class="card-actions"><a
+                                class="btn btn-secondary btn-small" href="{{ url_for('reports') }}">View reports</a>
+                        </div>{% endif %}
+                    </div>
+                </article>{% endfor %}</div>{% else %}<div class="empty compact">
+                <h3>No detected issues</h3>
+                <p>There are no detections matching the selected filters.</p>
+            </div>{% endif %}
+        </section>
+        <section class="inbox-submitted-column">
+            <div class="inbox-column-heading">
+                <h2>Submitted reports</h2><span class="pill pill-green">{{ submitted_reports|length }}</span>
+            </div>{% if submitted_reports %}<div class="submitted-report-list">{% for r in submitted_reports %}<article
+                    class="submitted-report-card">
+                    <div class="submitted-report-title"><b>{{ r.damage_type }}</b><span class="pill pill-green">{{
+                            r.status }}</span></div>
+                    <p>{{ r.description or 'No additional description.' }}</p>
+                    <div class="submitted-report-meta"><span>Priority: {{ r.priority }}</span><span>{{
+                            r.submitted_at|display_time }}</span></div><a class="text-link"
+                        href="{{ url_for('report_detail',report_id=r.id) }}">View report →</a>
+                </article>{% endfor %}</div>{% else %}<div class="empty compact">
+                <h3>No submitted reports</h3>
+                <p>Reports submitted for this location will appear here.</p>
+            </div>{% endif %}
+        </section>
+    </div>
+</section>{% endif %}
+<style>
+    .location-card-title {
+        color: inherit;
+        text-decoration: none
+    }
+
+    .location-card-title:hover {
+        color: #dc2626
+    }
+</style>
+{% endblock %}

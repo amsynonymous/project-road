@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{% block title %}ROAD{% endblock %}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<style>.top-right{display:flex;align-items:center;gap:10px}.utility-icon{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:9px;border:1px solid #e5e7eb;color:#dc2626;text-decoration:none;font-size:17px;background:#fff}.utility-icon:hover{background:#fff1f2;border-color:#fecaca}</style>
+<style>
+.evidence-zoom-trigger{cursor:zoom-in}
+.evidence-modal{display:none;position:fixed;inset:0;z-index:9999;align-items:center;justify-content:center;padding:24px}
+.evidence-modal.open{display:flex}
+.evidence-modal-backdrop{position:absolute;inset:0;background:rgba(10,15,25,.78)}
+.evidence-modal-panel{position:relative;z-index:1;width:min(1100px,96vw);height:min(88vh,850px);display:flex;flex-direction:column;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,.35)}
+.evidence-modal-header{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid #e5e7eb}
+.evidence-modal-close{border:0;background:transparent;font-size:30px;cursor:pointer;line-height:1}
+.evidence-modal-toolbar{display:flex;align-items:center;justify-content:center;gap:10px;padding:10px;border-bottom:1px solid #e5e7eb}
+.evidence-modal-toolbar button{border:1px solid #d1d5db;background:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:18px}
+#evidenceZoomLevel{min-width:55px;text-align:center;font-size:14px}
+.evidence-modal-viewport{flex:1;overflow:auto;background:#111827;display:flex;align-items:center;justify-content:center;padding:14px}
+.evidence-modal-viewport img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;transform-origin:center center;transition:transform .12s ease}
+@media(max-width:640px){.evidence-modal{padding:8px}.evidence-modal-panel{width:100%;height:92vh}.evidence-modal-viewport{justify-content:flex-start;align-items:flex-start}}
+</style>
+
+</head>
+<body>
+<div class="shell">
+<aside class="sidebar" id="sidebar">
+  <a class="brand" href="{{ url_for('dashboard') }}"><span class="brand-mark">R.</span><span>ROAD<small>Road Observation and Analysis for Damage System</small></span></a>
+  <div class="nav-label">WORKSPACE</div>
+  <nav>
+    <a class="nav-link {% if request.endpoint=='dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}"><span>▦</span> Dashboard</a>
+    <a class="nav-link {% if request.endpoint in ['inbox','discard_detection','report_detection'] %}active{% endif %}" href="{{ url_for('inbox') }}"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg></span> Detection Inbox {% if pending_count %}<span class="nav-dot" title="{{ pending_count }} action(s) needed">{{ pending_count if pending_count < 100 else '99+' }}</span>{% endif %}</a>
+    <a class="nav-link {% if request.endpoint=='locations_page' %}active{% endif %}" href="{{ url_for('locations_page') }}"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg></span> Locations</a>
+    <a class="nav-link {% if request.endpoint in ['reports','report_detail'] %}active{% endif %}" href="{{ url_for('reports') }}"><span>▤</span> Reports</a>
+    <a class="nav-link {% if request.endpoint=='history' %}active{% endif %}" href="{{ url_for('history') }}"><span>◷</span> Detection History</a>
+  </nav>
+  <div class="nav-bottom">
+    <a class="nav-link {% if request.endpoint=='settings_page' %}active{% endif %}" href="{{ url_for('settings_page') }}"><span>⚙</span> Settings</a>
+  </div>
+</aside>
+<div class="main-area">
+<header class="topbar"><button class="menu-btn" id="menuBtn" aria-label="Toggle navigation">☰</button><div class="top-title">{% block top_title %}Overview{% endblock %}</div><div class="top-right"><a class="utility-icon" href="{{ url_for('images') }}" title="Image detection" aria-label="Image detection">⌗</a><a class="utility-icon" href="{{ url_for('videos') }}" title="CCTV video testing" aria-label="CCTV video testing">▣</a><span class="avatar">R</span></div></header>
+<main class="content">
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}<div class="flash-stack">{% for category,message in messages %}<div class="flash {{ category }}">{{ message }}</div>{% endfor %}</div>{% endif %}
+{% endwith %}
+{% block content %}{% endblock %}
+</main>
+<!-- Evidence image zoom modal -->
+<div class="evidence-modal" id="evidenceModal" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Detection evidence viewer">
+  <div class="evidence-modal-backdrop" data-evidence-close></div>
+  <section class="evidence-modal-panel">
+    <header class="evidence-modal-header"><strong id="evidenceModalTitle">Detection evidence</strong><button type="button" class="evidence-modal-close" data-evidence-close aria-label="Close image viewer">×</button></header>
+    <div class="evidence-modal-toolbar"><button type="button" id="evidenceZoomOut" aria-label="Zoom out">−</button><span id="evidenceZoomLevel">100%</span><button type="button" id="evidenceZoomIn" aria-label="Zoom in">+</button><button type="button" id="evidenceZoomReset">Reset</button></div>
+    <div class="evidence-modal-viewport" id="evidenceModalViewport"><img id="evidenceModalImage" alt="Detection evidence"></div>
+  </section>
+</div>
+
+<footer class="footer">ROAD · Road Observation and Analysis for Damage System</footer>
+</div>
+</div>
+<script>
+const menuBtn=document.getElementById('menuBtn'), sidebar=document.getElementById('sidebar');
+menuBtn?.addEventListener('click',()=>sidebar.classList.toggle('open'));
+document.querySelectorAll('form[data-confirm]').forEach(f=>f.addEventListener('submit',e=>{if(!confirm(f.dataset.confirm))e.preventDefault()}));
+document.querySelectorAll('form[data-loading]').forEach(f=>f.addEventListener('submit',()=>{const b=f.querySelector('button[type=submit]');if(b){b.disabled=true;b.dataset.old=b.textContent;b.textContent='Processing…'}}));
+</script>
+<script>
+(()=> {
+ const modal=document.getElementById('evidenceModal'), img=document.getElementById('evidenceModalImage');
+ const title=document.getElementById('evidenceModalTitle'), level=document.getElementById('evidenceZoomLevel');
+ const viewport=document.getElementById('evidenceModalViewport');
+ const zin=document.getElementById('evidenceZoomIn'), zout=document.getElementById('evidenceZoomOut'), reset=document.getElementById('evidenceZoomReset');
+ if(!modal||!img)return;
+ let zoom=1, touchStartDistance=0, touchStartZoom=1, lastTouchCenter=null;
+ function setOrigin(clientX,clientY){
+   const r=img.getBoundingClientRect();
+   const x=Math.max(0,Math.min(100,((clientX-r.left)/Math.max(r.width,1))*100));
+   const y=Math.max(0,Math.min(100,((clientY-r.top)/Math.max(r.height,1))*100));
+   img.style.transformOrigin=`${x}% ${y}%`;
+ }
+ function applyZoom(){img.style.transform=`scale(${zoom})`;level.textContent=`${Math.round(zoom*100)}%`;img.style.maxWidth=zoom>1?'none':'100%';img.style.maxHeight=zoom>1?'none':'100%';}
+ function zoomAt(nextZoom,x,y){setOrigin(x,y);zoom=Math.max(.5,Math.min(4,nextZoom));applyZoom();}
+ function close(){modal.classList.remove('open');modal.setAttribute('aria-hidden','true');img.src='';document.body.style.overflow='';}
+ function distance(a,b){return Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);}
+ function center(a,b){return {x:(a.clientX+b.clientX)/2,y:(a.clientY+b.clientY)/2};}
+ document.addEventListener('click',e=>{
+   const trigger=e.target.closest('a.evidence-zoom-trigger');
+   if(trigger){e.preventDefault();const image=trigger.querySelector('img');img.src=image?image.src:trigger.href;title.textContent=trigger.dataset.evidenceTitle||(image&&image.alt)||'Detection evidence';zoom=1;img.style.transformOrigin='center center';applyZoom();modal.classList.add('open');modal.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';return;}
+   if(e.target.closest('[data-evidence-close]'))close();
+ });
+ if(zin)zin.addEventListener('click',()=>zoomAt(zoom+.25,window.innerWidth/2,window.innerHeight/2));
+ if(zout)zout.addEventListener('click',()=>zoomAt(zoom-.25,window.innerWidth/2,window.innerHeight/2));
+ if(reset)reset.addEventListener('click',()=>{zoom=1;img.style.transformOrigin='center center';applyZoom();viewport.scrollTo({top:0,left:0,behavior:'smooth'})});
+ // Pinch-to-zoom around the midpoint of the user's fingers on touch screens.
+ viewport.addEventListener('touchstart',e=>{
+   if(e.touches.length===2){e.preventDefault();touchStartDistance=distance(e.touches[0],e.touches[1]);touchStartZoom=zoom;lastTouchCenter=center(e.touches[0],e.touches[1]);}
+ },{passive:false});
+ viewport.addEventListener('touchmove',e=>{
+   if(e.touches.length===2&&touchStartDistance>0){e.preventDefault();const d=distance(e.touches[0],e.touches[1]);const c=center(e.touches[0],e.touches[1]);zoomAt(touchStartZoom*(d/touchStartDistance),c.x,c.y);lastTouchCenter=c;}
+ },{passive:false});
+ viewport.addEventListener('touchend',e=>{if(e.touches.length<2){touchStartDistance=0;touchStartZoom=zoom;lastTouchCenter=null;}});
+ // Mouse/trackpad wheel zooms around the pointer position.
+ viewport.addEventListener('wheel',e=>{
+   if(!modal.classList.contains('open'))return;
+   e.preventDefault();zoomAt(zoom*(e.deltaY<0?1.12:.89),e.clientX,e.clientY);
+ },{passive:false});
+ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&modal.classList.contains('open'))close()});
+})();
+</script>
+
+{% block scripts %}{% endblock %}
+</body></html>

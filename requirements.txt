@@ -1,0 +1,7 @@
+Flask>=3.0,<4.0
+Werkzeug>=3.0
+inference-sdk>=0.50.0
+python-dotenv>=1.0
+opencv-python-headless>=4.9
+Pillow>=10.0
+pytest>=8.0

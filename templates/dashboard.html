@@ -1,0 +1,534 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · ROAD{% endblock %}{% block top_title %}Dashboard{% endblock %}
+{% block content %}
+<div class="dashboard-title-row">
+  <div class="page-heading cctv-page-heading">
+    <div>
+      <div class="eyebrow">WORKSPACE / CCTV MONITORING</div>
+      <h1>Road CCTV Monitoring</h1>
+    </div>
+  </div>
+  <section class="panel compact-location-panel">
+
+    {% if selected %}{% endif %}
+  </section>
+</div>
+{% if not model_available %}<div class="notice notice-warning"><b>Roboflow Hosted API not configured</b><span>Configure
+    <code>ROBOFLOW_API_KEY</code>, workspace and workflow ID in your <code>.env</code> file. Detection cannot run until
+    the Hosted API is configured.</span><a href="{{ url_for('settings_page') }}">View setup →</a></div>{% endif %}
+<div class="dashboard-main-grid">
+  <section class="panel cctv-main-panel">
+    <div class="location-picker">
+      <form method="get" action="{{ url_for('dashboard') }}" class="location-select-form"><label
+          for="location_id">Select CCTV location</label><select name="location_id" id="location_id" required
+          onchange="this.form.submit()">
+          <option value="">Choose a location…</option>{% for loc in locations %}<option value="{{ loc.id }}" {% if
+            selected_location==loc.id %}selected{% endif %}>{{ loc.name }}</option>{% endfor %}
+        </select></form>
+    </div>
+    {% if not locations %}<div class="cctv-empty">
+      <h3>Add a location to start</h3><a class="btn btn-primary" href="{{ url_for('locations_page') }}">＋ Create first
+        location</a>
+    </div>
+    {% elif not selected %}<div class="cctv-empty cctv-empty-quiet">
+      <h3>No location selected</h3>
+      <p>Choose a location above to view its CCTV recordings and related analysis.</p>
+    </div>
+    {% else %}
+    {% if dashboard_video %}
+    <div class="live-detection-controls">
+      <label class="live-toggle"><input type="checkbox" id="liveDetectionToggle" checked><span>Enable live AI
+          detection</span></label>
+      <span class="live-status" id="liveDetectionStatus" role="status">Starting live AI detection…</span>
+
+    </div>
+    <div class="dashboard-cctv-player live-player" id="livePlayer" data-media-id="{{ dashboard_video.id }}">
+      <video id="dashboardVideo" autoplay muted playsinline preload="auto" tabindex="-1"
+        aria-label="Locked CCTV playback" src="{{ url_for('video_file', media_id=dashboard_video.id) }}"></video>
+      <canvas id="liveDetectionCanvas" aria-label="Live AI detection overlay"></canvas>
+    </div>
+    {% else %}<div class="cctv-empty small-empty">
+      <div class="cctv-offline-icon">◉</div>
+      <h3>CCTV not connected</h3>
+      <p>No recorded footage is available for {{ selected.name }}. Upload CCTV footage from the CCTV Video Library to
+        display playback here.</p><a class="text-link" href="{{ url_for('videos', location_id=selected.id) }}">Open CCTV
+        Video Library →</a>
+    </div>{% endif %}{% endif %}
+  </section>
+  <aside class="dashboard-right-column">
+    <div class="stat-grid two dashboard-stats"><a class="stat-card stat-card-link" href="{{ url_for('inbox') }}">
+        <div class="stat-label">Pending review <span class="stat-icon" aria-label="Pending review">⌛</span></div>
+        <div class="stat-value">{{ stats.pending }}</div>
+        <div class="stat-note">Awaiting user review</div><span class="stat-direct">View pending review →</span>
+      </a><a class="stat-card stat-card-link" href="{{ url_for('reports') }}">
+        <div class="stat-label">Submitted reports <span class="stat-icon" aria-label="Submitted reports">✓</span></div>
+        <div class="stat-value">{{ stats.reports }}</div>
+        <div class="stat-note">Submitted reports only</div><span class="stat-direct">View submitted reports →</span>
+      </a></div>
+    <section class="panel dashboard-activity">
+      <div class="panel-heading">
+        <div>
+          <h2>Recent analysis activity</h2>
+        </div><a class="text-link" href="{{ url_for('history') }}">View history →</a>
+      </div>{% if activity %}<div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Location</th>
+              <th>Status</th>
+              <th>Detections</th>
+              <th>Time detected</th>
+            </tr>
+          </thead>
+          <tbody>{% for row in activity %}<tr>
+              <td>{% if row.location_id %}<a class="text-link"
+                  href="{{ url_for('location_detail', location_id=row.location_id) }}"><b>{{ row.location_name
+                    }}</b></a>{% else %}<b>Unassigned</b>{% endif %}</td>
+              <td><span
+                  class="pill {% if row.display_status=='Completed' %}pill-green{% elif row.display_status=='Failed' %}pill-red{% else %}pill-grey{% endif %}">{{
+                  row.display_status }}</span></td>
+              <td>{{ row.detection_count }}</td>
+              <td>{{ row.started_at|display_time }}</td>
+            </tr>{% endfor %}</tbody>
+        </table>
+      </div>{% else %}<div class="empty compact">
+        <div class="empty-symbol">◷</div>
+        <h3>No activity yet</h3>
+      </div>{% endif %}
+    </section>
+  </aside>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+  html,
+  body {
+    height: 100%;
+    overflow: hidden
+  }
+
+  body {
+    overflow: hidden
+  }
+
+  main,
+  .main-content,
+  .content-wrapper,
+  .page-content {
+    min-height: 0
+  }
+
+  .page-heading {
+    margin-bottom: 10px !important
+  }
+
+  .dashboard-title-row {
+    margin-bottom: 10px !important
+  }
+
+  .dashboard-main-grid {
+    gap: 14px !important;
+    align-items: start
+  }
+
+  .cctv-main-panel {
+    min-height: 0
+  }
+
+  .dashboard-cctv-player {
+    margin-top: 8px !important
+  }
+
+  .live-detection-controls {
+    margin: 6px 0 !important;
+    padding: 7px 10px !important
+  }
+
+  .live-player video {
+    max-height: 40vh !important
+  }
+
+  .dashboard-activity .panel-heading {
+    padding-top: 12px;
+    padding-bottom: 12px
+  }
+
+  .dashboard-title-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(420px, 0.95fr);
+    align-items: start;
+    gap: 20px;
+    margin-bottom: 18px
+  }
+
+  .dashboard-title-row .cctv-page-heading {
+    margin: 0;
+    padding-top: 2px
+  }
+
+  .compact-location-panel {
+    align-self: start;
+    overflow: hidden
+  }
+
+  .compact-location-panel .location-picker {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 16px;
+    border: 0
+  }
+
+  .compact-location-panel .location-select-form {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    min-width: 0
+  }
+
+  .compact-location-panel .location-select-form label {
+    white-space: nowrap
+  }
+
+  .compact-location-panel .location-select-form select {
+    min-width: 0;
+    flex: 1
+  }
+
+  .compact-location-panel .selected-location-title {
+    padding: 8px 16px 12px;
+    border-top: 1px solid var(--border, #e5e7eb)
+  }
+
+  .compact-location-panel .selected-location-title .eyebrow {
+    font-size: 10px
+  }
+
+  .compact-location-panel .selected-location-title h3 {
+    font-size: 18px;
+    margin: 2px 0 0
+  }
+
+  .cctv-page-heading {
+    margin-bottom: 18px
+  }
+
+  .cctv-page-heading h1 {
+    margin-top: 6px
+  }
+
+  .dashboard-main-grid {
+    align-items: start;
+    gap: 18px
+  }
+
+  .cctv-main-panel .panel-heading {
+    padding: 14px 18px
+  }
+
+  .location-picker {
+    padding: 12px 18px;
+    gap: 12px
+  }
+
+  .selected-location-title {
+    padding: 14px 18px
+  }
+
+  .selected-location-title h3 {
+    margin: 4px 0 0
+  }
+
+  .live-detection-controls {
+    padding: 8px 12px;
+    margin: 10px 0
+  }
+
+  .live-player video {
+    max-height: 48vh
+  }
+
+  .live-player video {
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-select: none
+  }
+
+  .live-player {
+    position: relative
+  }
+
+  .live-detection-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border: 1px solid var(--border, #e5e7eb);
+    border-radius: 12px;
+    margin: 12px 0;
+    background: var(--panel, #fff)
+  }
+
+  .live-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 650;
+    cursor: pointer
+  }
+
+  .live-toggle input {
+    width: 17px;
+    height: 17px;
+    accent-color: #16a34a
+  }
+
+  .live-status {
+    font-size: 12px;
+    font-weight: 650;
+    padding: 5px 9px;
+    border-radius: 999px;
+    background: #f3f4f6;
+    color: #4b5563
+  }
+
+  .live-status.active {
+    background: #dcfce7;
+    color: #166534
+  }
+
+  .live-status.error {
+    background: #fee2e2;
+    color: #991b1b
+  }
+
+  .live-detection-controls small {
+    width: 100%;
+    color: #6b7280;
+    font-size: 12px
+  }
+
+  .live-player {
+    position: relative;
+    overflow: hidden;
+    background: #0b1220
+  }
+
+  .live-player video {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 68vh;
+    object-fit: contain
+  }
+
+  .live-player canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none
+  }
+
+  @media(max-width:1050px) {
+
+    html,
+    body {
+      height: auto;
+      overflow: auto
+    }
+
+    .dashboard-title-row {
+      grid-template-columns: 1fr
+    }
+
+    .compact-location-panel {
+      width: 100%
+    }
+
+    .live-player video {
+      max-height: 42vh !important
+    }
+  }
+
+  @media(max-height:760px) and (min-width:1051px) {
+    .live-player video {
+      max-height: 34vh !important
+    }
+
+    .dashboard-title-row {
+      margin-bottom: 6px !important
+    }
+
+    .page-heading h1 {
+      font-size: 26px !important
+    }
+
+    .dashboard-activity .panel-heading {
+      padding-top: 8px;
+      padding-bottom: 8px
+    }
+  }
+
+  @media(max-width:600px) {
+
+    .compact-location-panel .location-picker,
+    .compact-location-panel .location-select-form {
+      align-items: stretch;
+      flex-direction: column
+    }
+
+    .compact-location-panel .location-picker {
+      gap: 10px
+    }
+
+    .compact-location-panel .location-select-form {
+      gap: 6px
+    }
+
+    .compact-location-panel .location-select-form select {
+      width: 100%
+    }
+  }
+</style>
+<script>
+  (() => {
+    const player = document.getElementById('livePlayer');
+    const video = document.getElementById('dashboardVideo');
+    const canvas = document.getElementById('liveDetectionCanvas');
+    const toggle = document.getElementById('liveDetectionToggle');
+    const status = document.getElementById('liveDetectionStatus');
+    if (!player || !video || !canvas || !toggle || !status) return;
+
+    const ctx = canvas.getContext('2d');
+    const mediaId = player.dataset.mediaId;
+    const capture = document.createElement('canvas');
+    const captureCtx = capture.getContext('2d');
+    let busy = false;
+    let timer = null;
+    let requestSequence = 0;
+    let lastRequestAt = 0;
+    let lastDetections = [];
+    let sourceWidth = 0;
+    let sourceHeight = 0;
+
+    function setStatus(message, kind = '') {
+      status.textContent = message;
+      status.classList.toggle('active', kind === 'active');
+      status.classList.toggle('error', kind === 'error');
+    }
+    function fitOverlay() {
+      if (!video.videoWidth || !video.videoHeight) return;
+      if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+      }
+      drawBoxes(lastDetections, sourceWidth, sourceHeight);
+    }
+    function drawBoxes(detections, imageWidth, imageHeight) {
+      if (!canvas.width || !canvas.height) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (!imageWidth || !imageHeight) return;
+      const sx = canvas.width / imageWidth;
+      const sy = canvas.height / imageHeight;
+      const lineWidth = Math.max(2, canvas.width / 500);
+      ctx.lineWidth = lineWidth;
+      ctx.font = `600 ${Math.max(14, canvas.width / 65)}px Arial`;
+      detections.forEach(det => {
+        const c = det.coords || [];
+        if (c.length !== 4) return;
+        const x1 = Math.max(0, Math.min(canvas.width, c[0] * sx));
+        const y1 = Math.max(0, Math.min(canvas.height, c[1] * sy));
+        const x2 = Math.max(0, Math.min(canvas.width, c[2] * sx));
+        const y2 = Math.max(0, Math.min(canvas.height, c[3] * sy));
+        if (x2 <= x1 || y2 <= y1) return;
+        ctx.strokeStyle = '#22c55e';
+        ctx.fillStyle = '#22c55e';
+        ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+        const label = `${det.class_name || 'damage'} ${Math.round((det.confidence || 0) * 100)}%`;
+        const textWidth = ctx.measureText(label).width;
+        const labelHeight = Math.max(22, canvas.width / 45);
+        const labelY = Math.max(labelHeight, y1);
+        ctx.fillRect(x1, labelY - labelHeight, textWidth + 12, labelHeight);
+        ctx.fillStyle = '#052e16';
+        ctx.fillText(label, x1 + 6, labelY - labelHeight / 2 + 5);
+      });
+    }
+    async function inferFrame() {
+      if (!toggle.checked || video.paused || video.ended || busy || !video.videoWidth) return;
+      const now = performance.now();
+      if (now - lastRequestAt < 850) return;
+      lastRequestAt = now;
+      busy = true;
+      const seq = ++requestSequence;
+      try {
+        const scale = Math.min(1, 960 / video.videoWidth);
+        capture.width = Math.max(1, Math.round(video.videoWidth * scale));
+        capture.height = Math.max(1, Math.round(video.videoHeight * scale));
+        captureCtx.drawImage(video, 0, 0, capture.width, capture.height);
+        const blob = await new Promise(resolve => capture.toBlob(resolve, 'image/jpeg', 0.78));
+        if (!blob) throw new Error('Could not capture the current video frame.');
+        const body = new FormData();
+        body.append('frame', blob, 'playback-frame.jpg');
+        const response = await fetch(`/api/realtime-detect/${encodeURIComponent(mediaId)}`, {
+          method: 'POST', body, headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Detection request failed.');
+        if (seq !== requestSequence || !toggle.checked) return;
+        lastDetections = data.detections || [];
+        sourceWidth = data.image_width || capture.width;
+        sourceHeight = data.image_height || capture.height;
+        drawBoxes(lastDetections, sourceWidth, sourceHeight);
+        setStatus(`Live AI active · ${lastDetections.length} detection(s) · ${new Date(data.time_detected).toLocaleTimeString()}`, 'active');
+      } catch (err) {
+        setStatus(err.message || 'Live detection failed. Check Roboflow configuration.', 'error');
+      } finally {
+        busy = false;
+      }
+    }
+    function start() {
+      stop();
+      if (!toggle.checked || video.paused || video.ended) return;
+      setStatus('Connecting to Roboflow…');
+      inferFrame();
+      timer = window.setInterval(inferFrame, 250);
+    }
+    function stop() {
+      if (timer) window.clearInterval(timer);
+      timer = null;
+    }
+    toggle.addEventListener('change', () => {
+      if (toggle.checked) {
+        if (video.paused) video.play().catch(() => { });
+        start();
+      } else {
+        stop();
+        requestSequence++;
+        lastDetections = [];
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        setStatus('Overlay off · video playback only');
+      }
+    });
+    video.addEventListener('contextmenu', event => event.preventDefault());
+    video.addEventListener('keydown', event => event.preventDefault());
+    video.addEventListener('play', start);
+    video.addEventListener('pause', () => { stop(); if (toggle.checked) setStatus('Paused · overlay retained'); });
+    video.addEventListener('ended', () => { stop(); if (toggle.checked) setStatus('Playback ended'); });
+    video.addEventListener('loadedmetadata', fitOverlay);
+    video.addEventListener('resize', fitOverlay);
+    window.addEventListener('resize', fitOverlay);
+    // Live overlay is enabled by default whenever a video is available.
+    toggle.checked = true;
+    video.addEventListener('loadeddata', () => {
+      if (toggle.checked && !video.paused) start();
+    }, { once: true });
+    if (!video.paused) start();
+
+    video.addEventListener('seeked', () => { if (toggle.checked && !video.paused) inferFrame(); });
+  })();
+</script>
+{% endblock %}

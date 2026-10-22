@@ -1,0 +1,1 @@
+Copy your trained YOLO11 weights here and name the file best.pt. Do not use a random or substitute model.
