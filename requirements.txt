@@ -5,3 +5,4 @@ python-dotenv>=1.0
 opencv-python-headless>=4.9
 Pillow>=10.0
 pytest>=8.0
+gunicorn
